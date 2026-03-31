@@ -34,6 +34,11 @@ interface CachedNewsEntry {
   results: SearchResult[];
 }
 
+interface VoiceNewsIntent {
+  category: (typeof CATEGORIES)[number];
+  topic: string;
+}
+
 function formatTime(date: Date) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
@@ -42,24 +47,93 @@ function buildPlaceholder(title: string) {
   return title.charAt(0).toUpperCase() || 'N';
 }
 
-function buildDailyBriefing(name: string | undefined, interests: string[] | undefined, stories: SearchResult[]) {
+function getPrimaryTopic(interests: string[] | undefined) {
+  return interests?.find((interest) => interest.trim().length > 0) || 'technology';
+}
+
+function buildDailyContext(name: string | undefined, topic: string, stories: SearchResult[]) {
   const today = new Date().toLocaleDateString(undefined, {
     month: 'long',
     day: 'numeric',
     year: 'numeric',
   });
   const greetingName = name || 'there';
-  const interestSummary = interests?.length ? interests.join(', ') : 'your chosen interests';
-  const topLines = stories
+  const summaryLines = stories
     .slice(0, 3)
-    .map((story, index) => `${index + 1}. ${story.title}`)
-    .join(' ');
+    .map((story) => story.title)
+    .join('; ');
 
-  if (topLines) {
-    return `Hi ${greetingName}. It's ${today}. Welcome back to Newzzy. Here's a quick summary of what's happening today in ${interestSummary}: ${topLines} After that, ask what they want to explore next and keep the conversation natural.`;
+  if (summaryLines) {
+    return `The user is ${greetingName}. Start the conversation first without waiting for them. Greet them by name, then give a natural two or three sentence spoken summary about today's ${topic} news using these headlines for context: ${summaryLines}. After that, ask one simple follow-up question about what they want next. Keep it conversational, clean, and human.`;
   }
 
-  return `Hi ${greetingName}. It's ${today}. Welcome back to Newzzy. Give a clean, friendly greeting, mention today's news cycle briefly, and ask what they want to hear about first.`;
+  return `The user is ${greetingName}. Start the conversation first without waiting for them. Greet them by name, then give a natural two or three sentence spoken summary about today's ${topic} news. After that, ask one simple follow-up question about what they want next. Keep it conversational, clean, and human.`;
+}
+
+function inferCategoryFromTranscript(text: string): (typeof CATEGORIES)[number] {
+  const lower = text.toLowerCase();
+  if (/(video|videos|youtube|interview|watch)/.test(lower)) return 'Videos';
+  if (/(meme|memes|funny|viral)/.test(lower)) return 'Memes';
+  if (/(social|reddit|twitter|x\.com|tweets)/.test(lower)) return 'Social';
+  if (/(official|reuters|bbc|apnews|ap )/.test(lower)) return 'Official';
+  return 'Latest';
+}
+
+function extractVoiceNewsIntent(text: string, interests: string[] | undefined): VoiceNewsIntent | null {
+  const trimmed = text.trim();
+  if (trimmed.length < 4) return null;
+
+  const lower = trimmed.toLowerCase();
+  const mentionsNewsIntent =
+    /(news|update|updates|headline|headlines|story|stories|about|show|tell|brief|briefing|happening|latest)/.test(lower);
+
+  const matchedInterest = interests?.find((interest) => lower.includes(interest.toLowerCase()));
+
+  let topic = trimmed
+    .replace(/^(hey|hi|hello)\s+/i, '')
+    .replace(/^(can you|could you|would you|please|show me|tell me|give me|i want|let me hear|what's|whats|what is)\s+/i, '')
+    .replace(/\b(latest|news|updates|headlines|stories|briefing|brief|about|on|for me)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!mentionsNewsIntent && !matchedInterest) return null;
+
+  if (!topic || topic.length < 2) {
+    topic = matchedInterest || getPrimaryTopic(interests);
+  }
+
+  return {
+    category: inferCategoryFromTranscript(lower),
+    topic,
+  };
+}
+
+function buildRefreshNotice(topic: string, category: (typeof CATEGORIES)[number]) {
+  return `Updated cards for "${topic}" in ${category.toLowerCase()}.`;
+}
+
+function buildSearchQuery(topic: string, category: (typeof CATEGORIES)[number]) {
+  return `${topic} news ${CATEGORY_FILTERS[category]}`.trim();
+}
+
+function buildDailyBriefing(name: string | undefined, interests: string[] | undefined, stories: SearchResult[]) {
+  const topLines = stories
+    .slice(0, 3)
+    .map((story) => story.title)
+    .join(' ');
+  const topic = getPrimaryTopic(interests);
+  const today = new Date().toLocaleDateString(undefined, {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  const greetingName = name || 'there';
+
+  if (topLines) {
+    return `Hi ${greetingName}. It's ${today}. Start with a quick, natural two or three sentence summary about today's ${topic} news. Use these headlines as background: ${topLines}. Then ask what they want to explore next.`;
+  }
+
+  return `Hi ${greetingName}. It's ${today}. Start with a quick, natural two or three sentence summary about today's ${topic} news, then ask what they want to hear about first.`;
 }
 
 function formatVoiceError(error: unknown) {
@@ -75,6 +149,31 @@ function formatVoiceError(error: unknown) {
     }
   }
   return 'Unknown voice error';
+}
+
+function serializeVoiceDetails(details: unknown) {
+  if (!details) return 'No disconnect details provided';
+  if (typeof details === 'string') return details;
+  if (details instanceof Error) return details.message;
+  try {
+    return JSON.stringify(
+      details,
+      (_, value) => {
+        if (value instanceof CloseEvent) {
+          return {
+            type: value.type,
+            code: value.code,
+            reason: value.reason,
+            wasClean: value.wasClean,
+          };
+        }
+        return value;
+      },
+      2
+    );
+  } catch {
+    return String(details);
+  }
 }
 
 function NewsSkeleton() {
@@ -105,11 +204,14 @@ export default function Chat() {
   const [rateLimitedUntil, setRateLimitedUntil] = useState<number | null>(null);
   const [voiceNote, setVoiceNote] = useState('Idle');
   const [voiceIssue, setVoiceIssue] = useState<string | null>(null);
+  const [newsFocus, setNewsFocus] = useState(getPrimaryTopic(prefs?.interests));
   const captionTimer = useRef<ReturnType<typeof setTimeout>>();
   const transcriptRef = useRef<HTMLDivElement>(null);
   const newsCacheRef = useRef<Record<string, CachedNewsEntry>>({});
   const autoStartedRef = useRef(false);
   const heardAudioRef = useRef(false);
+  const lastVoiceIntentRef = useRef<{ key: string; at: number } | null>(null);
+  const pendingGreetingRef = useRef<{ context: string; briefing: string } | null>(null);
 
   const conversation = useConversation({
     onConnect: ({ conversationId }: any) => {
@@ -117,13 +219,31 @@ export default function Chat() {
       setStarted(true);
       setVoiceIssue(null);
       setVoiceNote(`Connected · ${conversationId}`);
+      if (pendingGreetingRef.current) {
+        const { context, briefing } = pendingGreetingRef.current;
+        window.setTimeout(() => {
+          try {
+            conversation.sendContextualUpdate(context);
+            conversation.sendUserMessage(briefing);
+            conversation.sendUserActivity();
+          } catch (error) {
+            console.error('Greeting handoff failed:', error);
+          }
+        }, 150);
+        pendingGreetingRef.current = null;
+      }
     },
     onDisconnect: (details: any) => {
-      console.info('[Newzzy voice] disconnected', details);
+      console.info('[Newzzy voice] disconnected', serializeVoiceDetails(details));
       heardAudioRef.current = false;
       setStarted(false);
       setVoiceNote('Disconnected');
-      const detailText = typeof details?.reason === 'string' ? details.reason : typeof details?.message === 'string' ? details.message : '';
+      const detailText =
+        typeof details?.message === 'string'
+          ? details.message
+          : typeof details?.reason === 'string'
+            ? details.reason
+            : serializeVoiceDetails(details);
       if (detailText) setVoiceIssue(detailText);
     },
     onStatusChange: ({ status }: any) => {
@@ -153,6 +273,21 @@ export default function Chat() {
         const text = message.user_transcription_event?.user_transcript || '';
         if (!text) return;
         setTranscript((prev) => [...prev, { id: `${Date.now()}-user`, role: 'user', text, timestamp: formatTime(new Date()) }]);
+
+        const intent = extractVoiceNewsIntent(text, prefs?.interests);
+        if (!intent) return;
+
+        const dedupeKey = `${intent.category}:${intent.topic.toLowerCase()}`;
+        const now = Date.now();
+        if (lastVoiceIntentRef.current && lastVoiceIntentRef.current.key === dedupeKey && now - lastVoiceIntentRef.current.at < 8000) {
+          return;
+        }
+
+        lastVoiceIntentRef.current = { key: dedupeKey, at: now };
+        setActiveCategory(intent.category);
+        setNewsFocus(intent.topic);
+        setSearchNotice(`Listening for ${intent.topic}...`);
+        void fetchNews(intent.category, { force: true, topicOverride: intent.topic, source: 'voice' });
       }
     },
     onError: (error) => {
@@ -166,16 +301,19 @@ export default function Chat() {
   });
 
   const fetchNews = useCallback(
-    async (category: (typeof CATEGORIES)[number], options?: { force?: boolean }): Promise<SearchResult[]> => {
-      const interests = prefs?.interests?.join(' OR ') || 'technology';
-      const query = `${interests} news ${CATEGORY_FILTERS[category]}`.trim();
-      const cacheKey = `${category}:${query}`;
+    async (
+      category: (typeof CATEGORIES)[number],
+      options?: { force?: boolean; topicOverride?: string; source?: 'voice' | 'ui' | 'auto' }
+    ): Promise<SearchResult[]> => {
+      const topic = options?.topicOverride || newsFocus || getPrimaryTopic(prefs?.interests);
+      const query = buildSearchQuery(topic, category);
+      const cacheKey = `${category}:${topic.toLowerCase()}:${query}`;
       const cached = newsCacheRef.current[cacheKey];
       const now = Date.now();
 
       if (!options?.force && cached && now - cached.fetchedAt < NEWS_CACHE_TTL_MS) {
         setNews(cached.results);
-        setSearchNotice('Showing a recent cached briefing.');
+        setSearchNotice(`Showing a recent ${topic} briefing.`);
         return cached.results;
       }
 
@@ -198,6 +336,12 @@ export default function Chat() {
         newsCacheRef.current[cacheKey] = { fetchedAt: Date.now(), results: data.results };
         setNews(data.results);
         setRateLimitedUntil(null);
+        setNewsFocus(topic);
+        setSearchNotice(
+          options?.source === 'voice'
+            ? buildRefreshNotice(topic, category)
+            : `Showing ${topic} in ${category.toLowerCase()}.`
+        );
         return data.results;
       } catch (error) {
         console.error('News fetch error:', error);
@@ -219,7 +363,7 @@ export default function Chat() {
         window.setTimeout(() => setSearchingVoice(false), 250);
       }
     },
-    [prefs?.interests, rateLimitedUntil]
+    [newsFocus, prefs?.interests, rateLimitedUntil]
   );
 
   const startConversation = useCallback(
@@ -230,7 +374,12 @@ export default function Chat() {
         await navigator.mediaDevices.getUserMedia({ audio: true });
         setVoiceNote('Requesting ElevenLabs session...');
         const auth = await getConversationAuth(prefs?.name);
-        const firstMessage = buildDailyBriefing(prefs?.name, prefs?.interests, briefingStories ?? []);
+        console.info('[Newzzy voice] auth mode', auth.connectionType);
+        const focusTopic = getPrimaryTopic(prefs?.interests);
+        pendingGreetingRef.current = {
+          context: buildDailyContext(prefs?.name, focusTopic, briefingStories ?? []),
+          briefing: buildDailyBriefing(prefs?.name, prefs?.interests, briefingStories ?? []),
+        };
         const sessionConfig = auth.conversationToken
           ? { conversationToken: auth.conversationToken, connectionType: 'webrtc' as const }
           : { signedUrl: auth.signedUrl!, connectionType: 'websocket' as const };
@@ -238,17 +387,13 @@ export default function Chat() {
         const conversationId = await conversation.startSession({
           ...sessionConfig,
           useWakeLock: true,
-          overrides: {
-            agent: {
-              firstMessage,
-            },
-          },
         });
         setStarted(true);
         setVoiceNote(`Connected · ${auth.connectionType} · ${conversationId}`);
         toast.success('Companion connected.');
       } catch (error) {
         console.error('Failed to start:', error);
+        pendingGreetingRef.current = null;
         const formatted = formatVoiceError(error);
         setVoiceIssue(formatted);
         setVoiceNote('Voice connection failed');
@@ -279,7 +424,7 @@ export default function Chat() {
     sessionStorage.removeItem('newzzy_auto_start_target');
 
     void (async () => {
-      const stories = await fetchNews('Latest');
+      const stories = await fetchNews('Latest', { topicOverride: getPrimaryTopic(prefs?.interests), source: 'auto' });
       await startConversation(stories);
     })();
   }, [fetchNews, startConversation]);
@@ -411,10 +556,10 @@ export default function Chat() {
         <aside className="panel-shell flex min-h-[calc(100vh-4rem)] flex-col overflow-hidden bg-[rgba(255,255,255,0.72)] backdrop-blur-[24px]">
           <div className="nav-glass sticky top-0 z-20 px-5 py-3">
             <div className="flex items-center justify-between gap-4">
-              <div>
-                <h2 className="font-display text-[17px] font-semibold text-[#1C1C1E]">What's happening</h2>
-                <div className="mt-1 flex items-center gap-2 text-[12px] text-[#8E8E93]">
-                  <span>Live from the web</span>
+                <div>
+                  <h2 className="font-display text-[17px] font-semibold text-[#1C1C1E]">What's happening</h2>
+                  <div className="mt-1 flex items-center gap-2 text-[12px] text-[#8E8E93]">
+                  <span>Live from the web · {newsFocus}</span>
                   <span className="h-2 w-2 rounded-full bg-[#E24B4A]" />
                 </div>
               </div>
@@ -488,9 +633,11 @@ export default function Chat() {
                             <ExternalLink className="h-3.5 w-3.5" />
                             Read more
                           </a>
-                          <button type="button" onClick={() => navigate(`/debate?topic=${encodeURIComponent(item.title)}`)} className="rounded-full border border-[rgba(226,75,74,0.22)] bg-[rgba(226,75,74,0.08)] px-3 py-1.5 text-[11px] font-medium text-[#E24B4A]">
-                            Debate this
-                          </button>
+                          {!['Videos', 'Social'].includes(activeCategory) ? (
+                            <button type="button" onClick={() => navigate(`/debate?topic=${encodeURIComponent(item.title)}`)} className="rounded-full border border-[rgba(226,75,74,0.22)] bg-[rgba(226,75,74,0.08)] px-3 py-1.5 text-[11px] font-medium text-[#E24B4A]">
+                              Debate this
+                            </button>
+                          ) : null}
                         </div>
                       </div>
                     </motion.article>

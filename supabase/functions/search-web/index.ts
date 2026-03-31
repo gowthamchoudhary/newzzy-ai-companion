@@ -24,15 +24,120 @@ function extractPoints(markdown: string): string[] {
   return sentences.slice(0, 8);
 }
 
+const DEBATE_SCHEMA = {
+  type: 'object',
+  properties: {
+    topic: { type: 'string' },
+    pros: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          point: { type: 'string' },
+          evidence: { type: 'string' },
+          source: { type: 'string' },
+        },
+        required: ['point', 'source'],
+      },
+    },
+    cons: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          point: { type: 'string' },
+          evidence: { type: 'string' },
+          source: { type: 'string' },
+        },
+        required: ['point', 'source'],
+      },
+    },
+    sources: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          url: { type: 'string' },
+          title: { type: 'string' },
+        },
+        required: ['url'],
+      },
+    },
+  },
+  required: ['topic', 'pros', 'cons'],
+};
+
+async function pollAgentResult(apiKey: string, jobId: string) {
+  const startedAt = Date.now();
+  const timeoutMs = 45_000;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const response = await fetch(`https://api.firecrawl.dev/v2/agent/${jobId}`, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data?.error || `Agent status failed: ${response.status}`);
+    }
+
+    if (data.status === 'completed') {
+      return data.data;
+    }
+
+    if (data.status === 'failed') {
+      throw new Error(data?.error || 'Firecrawl agent job failed');
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+
+  throw new Error('Firecrawl agent timed out');
+}
+
+async function runDebateResearch(apiKey: string, topic: string) {
+  const prompt = `Given the topic: "${topic}", find credible web sources and extract 6 concise debate-suitable supporting points and 6 opposing points. Each point must be specific, non-duplicative, and include a citation URL. Prefer reputable sources such as news outlets, research organizations, and government sources. Include short evidence snippets where available. Return data in the provided JSON schema.`;
+
+  const startResponse = await fetch('https://api.firecrawl.dev/v2/agent', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      prompt,
+      schema: DEBATE_SCHEMA,
+      model: 'spark-1-mini',
+      maxCredits: 150,
+    }),
+  });
+
+  const startData = await startResponse.json();
+
+  if (!startResponse.ok) {
+    throw new Error(startData?.error || `Debate agent request failed: ${startResponse.status}`);
+  }
+
+  const jobId = startData.id;
+  if (!jobId) {
+    throw new Error('Firecrawl agent did not return a job id');
+  }
+
+  return await pollAgentResult(apiKey, jobId);
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { query, extractPoints: shouldExtract } = await req.json();
+    const { query, extractPoints: shouldExtract, mode, topic } = await req.json();
 
-    if (!query) {
+    if (!query && mode !== 'debate') {
       return new Response(JSON.stringify({ error: 'Query is required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -42,6 +147,21 @@ Deno.serve(async (req) => {
     if (!apiKey) {
       return new Response(JSON.stringify({ error: 'FIRECRAWL_API_KEY not configured' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (mode === 'debate') {
+      if (!topic) {
+        return new Response(JSON.stringify({ error: 'Topic is required for debate mode' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      console.log('Debate research:', topic);
+      const debateData = await runDebateResearch(apiKey, topic);
+
+      return new Response(JSON.stringify(debateData), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 

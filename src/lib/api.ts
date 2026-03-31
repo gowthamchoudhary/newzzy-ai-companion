@@ -56,6 +56,19 @@ export interface SearchResponse {
   textSummary: string;
 }
 
+export interface DebateResearchPoint {
+  point: string;
+  evidence?: string;
+  source: string;
+}
+
+export interface DebateResearchResponse {
+  topic: string;
+  pros: DebateResearchPoint[];
+  cons: DebateResearchPoint[];
+  sources?: { url: string; title?: string }[];
+}
+
 function parseRetryAfterSeconds(message: string) {
   const match = message.match(/retry after\s+(\d+)s/i);
   return match ? Number(match[1]) : undefined;
@@ -72,12 +85,59 @@ export async function searchWeb(query: string, extractPoints = false): Promise<S
     body: JSON.stringify({ query, extractPoints }),
   });
 
-  const payload = await response.json().catch(() => null);
+  const rawBody = await response.text();
+  let payload: unknown = null;
+
+  if (rawBody) {
+    try {
+      payload = JSON.parse(rawBody);
+    } catch {
+      payload = null;
+    }
+  }
 
   if (!response.ok) {
-    const message = payload?.error || `Search request failed with status ${response.status}`;
+    const message = (payload as any)?.error || rawBody || `Search request failed with status ${response.status}`;
     throw new SearchWebError(message, response.status, parseRetryAfterSeconds(message));
   }
 
+  if (!payload) {
+    throw new SearchWebError('Search returned an empty response body', response.status);
+  }
+
   return payload as SearchResponse;
+}
+
+export async function getDebateResearch(topic: string): Promise<DebateResearchResponse> {
+  const response = await fetch(`${SUPABASE_FUNCTIONS_URL}/search-web`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: SUPABASE_PUBLISHABLE_KEY,
+      Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+    },
+    body: JSON.stringify({ mode: 'debate', topic }),
+  });
+
+  const rawBody = await response.text();
+  let payload: unknown = null;
+
+  if (rawBody) {
+    try {
+      payload = JSON.parse(rawBody);
+    } catch {
+      payload = null;
+    }
+  }
+
+  if (!response.ok) {
+    const message = (payload as any)?.error || rawBody || `Debate research failed with status ${response.status}`;
+    throw new SearchWebError(message, response.status, parseRetryAfterSeconds(message));
+  }
+
+  if (!payload) {
+    throw new SearchWebError('Debate research returned an empty response body', response.status);
+  }
+
+  return payload as DebateResearchResponse;
 }
