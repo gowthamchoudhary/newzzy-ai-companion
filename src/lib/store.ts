@@ -21,13 +21,13 @@ export function getPreferences(): UserPreferences | null {
   }
 }
 
-export const VOICES = [
+export const VOICES: { name: string; id: string }[] = [
   { name: 'Rachel', id: 'EXAVITQu4vr4xnSDxMaL' },
   { name: 'Adam', id: 'pNInz6obpgDQGcFmaJgB' },
   { name: 'Bella', id: 'EXAVITQu4vr4xnSDxMaL' },
   { name: 'Antoni', id: 'ErXwobaYiN019PkySvjV' },
   { name: 'Elli', id: 'MF3mGyEYCl7XYWbV9V6O' },
-] as const;
+];
 
 export const INTERESTS = [
   'Tech', 'AI', 'Sports', 'Gaming', 'Crypto',
