@@ -4,7 +4,7 @@ import { Toaster as Sonner, toast } from "sonner";
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme();
+  const { theme = "light" } = useTheme();
 
   return (
     <Sonner
@@ -13,10 +13,17 @@ const Toaster = ({ ...props }: ToasterProps) => {
       toastOptions={{
         classNames: {
           toast:
-            "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg",
-          description: "group-[.toast]:text-muted-foreground",
-          actionButton: "group-[.toast]:bg-primary group-[.toast]:text-primary-foreground",
-          cancelButton: "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",
+            "group toast border border-white/70 bg-white/82 text-[#1C1C1E] shadow-[var(--shadow-card)] backdrop-blur-[20px]",
+          title: "font-display text-sm font-semibold text-[#1C1C1E]",
+          description: "text-[13px] text-[#8E8E93]",
+          actionButton:
+            "bg-[linear-gradient(135deg,#00B4FF,#0099FF)] text-white hover:opacity-95",
+          cancelButton:
+            "bg-white/70 text-[#8E8E93] hover:bg-white/90",
+          success: "border-l-[3px] border-l-[#34C759]",
+          error: "border-l-[3px] border-l-[#E24B4A]",
+          warning: "border-l-[3px] border-l-[#F0A500]",
+          info: "border-l-[3px] border-l-[#00A3FF]",
         },
       }}
       {...props}

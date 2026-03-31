@@ -9,6 +9,11 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
+    const participantName =
+      typeof body?.participantName === 'string' && body.participantName.trim().length > 0
+        ? body.participantName.trim()
+        : undefined;
     const ELEVENLABS_API_KEY = Deno.env.get('ELEVENLABS_API_KEY');
     const ELEVENLABS_AGENT_ID = Deno.env.get('ELEVENLABS_AGENT_ID');
 
@@ -24,24 +29,52 @@ Deno.serve(async (req) => {
       });
     }
 
-    const response = await fetch(
+    const tokenUrl = new URL('https://api.elevenlabs.io/v1/convai/conversation/token');
+    tokenUrl.searchParams.set('agent_id', ELEVENLABS_AGENT_ID);
+    if (participantName) {
+      tokenUrl.searchParams.set('participant_name', participantName);
+    }
+
+    const tokenResponse = await fetch(tokenUrl, {
+      headers: { 'xi-api-key': ELEVENLABS_API_KEY },
+    });
+
+    if (tokenResponse.ok) {
+      const tokenData = await tokenResponse.json();
+      return new Response(JSON.stringify({ conversation_token: tokenData.token, connection_type: 'webrtc' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const tokenError = await tokenResponse.text();
+    console.error('ElevenLabs token API error:', tokenError);
+
+    const signedUrlResponse = await fetch(
       `https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?agent_id=${ELEVENLABS_AGENT_ID}`,
       {
         headers: { 'xi-api-key': ELEVENLABS_API_KEY },
       }
     );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('ElevenLabs API error:', errorText);
-      return new Response(JSON.stringify({ error: `ElevenLabs API error: ${response.status}` }), {
-        status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (!signedUrlResponse.ok) {
+      const signedUrlError = await signedUrlResponse.text();
+      console.error('ElevenLabs signed URL API error:', signedUrlError);
+      return new Response(
+        JSON.stringify({
+          error: 'Could not create ElevenLabs conversation credentials',
+          token_error: tokenError,
+          signed_url_error: signedUrlError,
+        }),
+        {
+          status: signedUrlResponse.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
-    const data = await response.json();
+    const signedUrlData = await signedUrlResponse.json();
 
-    return new Response(JSON.stringify({ signed_url: data.signed_url }), {
+    return new Response(JSON.stringify({ signed_url: signedUrlData.signed_url, connection_type: 'websocket' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
