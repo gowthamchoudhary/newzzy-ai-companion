@@ -1,3 +1,3 @@
-# Welcome to your Lovable project
+# Newzzy
 
-TODO: Document your project here
+Voice-first AI news companion for live briefings and debate.
