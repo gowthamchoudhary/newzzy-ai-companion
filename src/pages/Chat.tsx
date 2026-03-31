@@ -242,7 +242,6 @@ export default function Chat() {
             agent: {
               firstMessage,
             },
-            tts: { voiceId: prefs?.voiceId },
           },
         });
         setStarted(true);
@@ -257,7 +256,7 @@ export default function Chat() {
         setStarted(false);
       }
     },
-    [conversation, prefs]
+    [conversation, prefs?.interests, prefs?.name]
   );
 
   const stopConversation = useCallback(async () => {

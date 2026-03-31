@@ -218,13 +218,12 @@ export default function Debate() {
           agent: {
             firstMessage,
           },
-          tts: { voiceId: prefs?.voiceId },
         },
       });
       setStarted(true);
       setVoiceNote(`Connected · ${auth.connectionType} · ${conversationId}`);
     },
-    [conversation, prefs?.name, prefs?.voiceId]
+    [conversation, prefs?.name]
   );
 
   const startDebate = useCallback(async () => {
