@@ -229,10 +229,21 @@ export default function News() {
     setLoading(true);
     setSelectedArticle(null);
     try {
-      const results = await Promise.allSettled(DEFAULT_TOPICS.map((topic) => generateArticle(topic)));
-      const successful = results
-        .filter((r): r is PromiseFulfilledResult<GeneratedArticle> => r.status === 'fulfilled')
-        .map((r) => r.value);
+      // Stagger requests to avoid rate limits (1.5s between each)
+      const successful: GeneratedArticle[] = [];
+      for (const topic of DEFAULT_TOPICS) {
+        try {
+          const article = await generateArticle(topic);
+          successful.push(article);
+          setArticles((prev) => [...prev, article]);
+        } catch (err) {
+          console.warn(`Failed to generate article for "${topic}":`, err);
+        }
+        // Small delay between requests
+        if (topic !== DEFAULT_TOPICS[DEFAULT_TOPICS.length - 1]) {
+          await new Promise((r) => setTimeout(r, 1500));
+        }
+      }
 
       if (successful.length === 0) {
         toast.error('Could not generate articles right now. Try again.');

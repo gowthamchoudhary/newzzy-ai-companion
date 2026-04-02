@@ -133,15 +133,15 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Step 3: Call Groq LLM
-    const llmResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    // Step 3: Call Lovable AI Gateway
+    const llmResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${GROQ_API_KEY}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: buildUserPrompt(sourceMaterial) },
@@ -154,10 +154,16 @@ Deno.serve(async (req) => {
 
     if (!llmResponse.ok) {
       const errText = await llmResponse.text();
-      console.error('Groq error:', llmResponse.status, errText);
+      console.error('AI Gateway error:', llmResponse.status, errText);
       if (llmResponse.status === 429) {
-        return new Response(JSON.stringify({ error: 'Rate limited by AI provider. Try again in a moment.' }), {
+        return new Response(JSON.stringify({ error: 'Rate limited. Please try again in a moment.' }), {
           status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (llmResponse.status === 402) {
+        return new Response(JSON.stringify({ error: 'AI credits exhausted. Please add funds.' }), {
+          status: 402,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
