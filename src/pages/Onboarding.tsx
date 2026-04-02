@@ -313,17 +313,24 @@ export default function Onboarding() {
               </section>
             </div>
 
-            <div className="mt-8">
+            <div className="mt-8 space-y-[10px]">
+              <Button
+                onClick={() => handleContinue('/news')}
+                className="h-[54px] w-full rounded-full border-0 bg-[linear-gradient(135deg,#00B4FF_0%,#0099FF_100%)] text-[16px] font-semibold text-white shadow-[0_10px_28px_-5px_rgba(0,163,255,0.40),inset_0_1px_0_rgba(255,255,255,0.25)] hover:translate-y-[-1px] hover:bg-[linear-gradient(135deg,#00C4FF,#00AAFF)] hover:shadow-[0_12px_32px_-4px_rgba(0,163,255,0.50)]"
+              >
+                <Newspaper className="mr-2 h-[18px] w-[18px]" />
+                Read News Feed
+              </Button>
               <Button
                 onClick={() => handleContinue('/chat')}
-                className="h-[54px] w-full rounded-full border-0 bg-[linear-gradient(135deg,#00B4FF_0%,#0099FF_100%)] text-[16px] font-semibold text-white shadow-[0_10px_28px_-5px_rgba(0,163,255,0.40),inset_0_1px_0_rgba(255,255,255,0.25)] hover:translate-y-[-1px] hover:bg-[linear-gradient(135deg,#00C4FF,#00AAFF)] hover:shadow-[0_12px_32px_-4px_rgba(0,163,255,0.50)]"
+                className="h-[54px] w-full rounded-full border border-[rgba(129,207,255,0.30)] bg-[rgba(255,255,255,0.90)] text-[16px] font-semibold text-[#1C1C1E] shadow-[var(--shadow-card)] hover:bg-[rgba(255,255,255,1)]"
               >
                 <Mic className="mr-2 h-[18px] w-[18px]" />
                 Start News Chat
               </Button>
               <Button
                 onClick={() => handleContinue('/debate')}
-                className="mt-[10px] h-[54px] w-full rounded-full border border-[rgba(255,255,255,0.08)] bg-[#1C2526] text-[16px] font-semibold text-white shadow-[var(--shadow-bar)] hover:bg-[#2d3436]"
+                className="h-[54px] w-full rounded-full border border-[rgba(255,255,255,0.08)] bg-[#1C2526] text-[16px] font-semibold text-white shadow-[var(--shadow-bar)] hover:bg-[#2d3436]"
               >
                 <Swords className="mr-2 h-[18px] w-[18px]" />
                 Enter Debate Arena

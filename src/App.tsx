@@ -60,6 +60,7 @@ function AnimatedRoutes() {
       >
         <Routes location={location}>
           <Route path="/" element={<Onboarding />} />
+          <Route path="/news" element={<News />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/debate" element={<Debate />} />
           <Route path="*" element={<NotFound />} />
