@@ -90,7 +90,7 @@ export default function Onboarding() {
       window.speechSynthesis.speak(utterance);
     } else {
       toast.info('Voice preview is not supported in this browser.');
-      const timeout = window.setTimeout(() => setPreviewingVoice(null), 1800);
+      const timeout = (window as any).setTimeout(() => setPreviewingVoice(null), 1800);
       return () => window.clearTimeout(timeout);
     }
 
