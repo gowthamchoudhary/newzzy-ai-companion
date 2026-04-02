@@ -227,6 +227,7 @@ export default function News() {
 
   const loadArticles = useCallback(async () => {
     setLoading(true);
+    setArticles([]);
     setSelectedArticle(null);
     try {
       // Stagger requests to avoid rate limits (1.5s between each)
