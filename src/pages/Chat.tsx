@@ -266,7 +266,7 @@ export default function Chat() {
         setCaption(text);
         setTranscript((prev) => [...prev, { id: `${Date.now()}-agent`, role: 'agent', text, timestamp: formatTime(new Date()) }]);
         if (captionTimer.current) window.clearTimeout(captionTimer.current);
-        captionTimer.current = window.setTimeout(() => setCaption(''), 2000);
+        captionTimer.current = window.setTimeout(() => setCaption(''), 2000) as unknown as ReturnType<typeof setTimeout>;
       }
 
       if (message.type === 'user_transcript') {
