@@ -58,6 +58,17 @@ function buildDailyContext(name: string | undefined, topic: string, stories: Sea
     year: 'numeric',
   });
   const greetingName = name || 'there';
+
+  // Check if there's article context from the News page
+  const articleContextRaw = sessionStorage.getItem('newzzy_article_context');
+  if (articleContextRaw) {
+    sessionStorage.removeItem('newzzy_article_context');
+    try {
+      const ac = JSON.parse(articleContextRaw);
+      return `The user is ${greetingName}. Today is ${today}. The user just read this article: "${ac.headline}". Summary: ${ac.lede} ${ac.body}. Start by greeting them, then discuss this article naturally. Answer questions about it. If they ask about something else, search the web.`;
+    } catch { /* fall through */ }
+  }
+
   const summaryLines = stories
     .slice(0, 3)
     .map((story) => story.title)
