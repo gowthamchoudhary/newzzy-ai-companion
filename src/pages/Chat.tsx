@@ -387,7 +387,7 @@ export default function Chat() {
         const conversationId = await conversation.startSession({
           ...sessionConfig,
           useWakeLock: true,
-        });
+        } as any);
         setStarted(true);
         setVoiceNote(`Connected · ${auth.connectionType} · ${conversationId}`);
         toast.success('Companion connected.');

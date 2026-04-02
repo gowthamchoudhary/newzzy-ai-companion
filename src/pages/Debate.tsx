@@ -309,7 +309,7 @@ export default function Debate() {
       const conversationId = await conversation.startSession({
         ...sessionConfig,
         useWakeLock: true,
-      });
+      } as any);
       setStarted(true);
       setVoiceNote(`Connected · ${auth.connectionType} · ${conversationId}`);
     },
