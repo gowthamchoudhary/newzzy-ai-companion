@@ -9,6 +9,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Onboarding from "./pages/Onboarding";
 import Chat from "./pages/Chat";
 import Debate from "./pages/Debate";
+import News from "./pages/News";
 import NotFound from "./pages/NotFound";
 import { GradientOrb } from "./components/GradientOrb";
 
@@ -59,6 +60,7 @@ function AnimatedRoutes() {
       >
         <Routes location={location}>
           <Route path="/" element={<Onboarding />} />
+          <Route path="/news" element={<News />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/debate" element={<Debate />} />
           <Route path="*" element={<NotFound />} />

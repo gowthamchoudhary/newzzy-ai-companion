@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import type { GeneratedArticle } from '@/lib/types';
 
 const SUPABASE_FUNCTIONS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -140,4 +141,38 @@ export async function getDebateResearch(topic: string): Promise<DebateResearchRe
   }
 
   return payload as DebateResearchResponse;
+}
+
+export async function generateArticle(topic: string): Promise<GeneratedArticle> {
+  const response = await fetch(`${SUPABASE_FUNCTIONS_URL}/generate-article`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: SUPABASE_PUBLISHABLE_KEY,
+      Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+    },
+    body: JSON.stringify({ topic }),
+  });
+
+  const rawBody = await response.text();
+  let payload: unknown = null;
+
+  if (rawBody) {
+    try {
+      payload = JSON.parse(rawBody);
+    } catch {
+      payload = null;
+    }
+  }
+
+  if (!response.ok) {
+    const message = (payload as any)?.error || rawBody || `Article generation failed with status ${response.status}`;
+    throw new SearchWebError(message, response.status, parseRetryAfterSeconds(message));
+  }
+
+  if (!payload) {
+    throw new SearchWebError('Article generation returned empty response', response.status);
+  }
+
+  return payload as GeneratedArticle;
 }

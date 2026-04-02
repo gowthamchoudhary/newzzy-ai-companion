@@ -248,7 +248,7 @@ export default function Debate() {
         const text = message.agent_response_event?.agent_response || '';
         setCaption(text);
         if (captionTimer.current) window.clearTimeout(captionTimer.current);
-        captionTimer.current = window.setTimeout(() => setCaption(''), 2000);
+        captionTimer.current = window.setTimeout(() => setCaption(''), 2000) as unknown as ReturnType<typeof setTimeout>;
       }
     },
     onError: (error) => {
@@ -309,7 +309,7 @@ export default function Debate() {
       const conversationId = await conversation.startSession({
         ...sessionConfig,
         useWakeLock: true,
-      });
+      } as any);
       setStarted(true);
       setVoiceNote(`Connected · ${auth.connectionType} · ${conversationId}`);
     },
