@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import type { GeneratedArticle } from '@/lib/types';
 
 const SUPABASE_FUNCTIONS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
