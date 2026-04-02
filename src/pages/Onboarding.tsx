@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Check, Mic, Play, Radio, Swords, AudioLines } from 'lucide-react';
+import { Check, Mic, Newspaper, Play, Radio, Swords, AudioLines } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { INTERESTS, VOICES, savePreferences, type VoiceOption } from '@/lib/store';
