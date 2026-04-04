@@ -644,11 +644,7 @@ export default function Chat() {
                             <ExternalLink className="h-3.5 w-3.5" />
                             Read more
                           </a>
-                          {!['Videos', 'Social'].includes(activeCategory) ? (
-                            <button type="button" onClick={() => navigate(`/debate?topic=${encodeURIComponent(item.title)}`)} className="rounded-full border border-[rgba(226,75,74,0.22)] bg-[rgba(226,75,74,0.08)] px-3 py-1.5 text-[11px] font-medium text-[#E24B4A]">
-                              Debate this
-                            </button>
-                          ) : null}
+                          {null}
                         </div>
                       </div>
                     </motion.article>
