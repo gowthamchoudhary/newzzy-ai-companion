@@ -13,3 +13,24 @@ export interface GeneratedArticle {
   heroImage?: string | null;
   generatedAt: string;
 }
+
+export interface QuickHit {
+  id: string;
+  topic: string;
+  summary: string;
+  source: { name: string; url: string };
+}
+
+export interface ByTheNumber {
+  id: string;
+  number: string;
+  context: string;
+  source: { name: string; url: string };
+}
+
+export interface DailyBriefData {
+  deepDives: GeneratedArticle[];
+  quickHits: QuickHit[];
+  byTheNumbers: ByTheNumber[];
+  generatedAt: string;
+}
