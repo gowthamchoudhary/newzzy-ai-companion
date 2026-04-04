@@ -265,6 +265,10 @@
     box-shadow: 0 6px 18px rgba(129, 207, 255, 0.16);
   }
 
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
   .skeleton-shimmer {
     background: linear-gradient(
       90deg,
