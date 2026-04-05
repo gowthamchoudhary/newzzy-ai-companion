@@ -20,7 +20,7 @@ export default function Auth() {
       if (mode === 'signup') {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        toast.success('Check your email to confirm your account.');
+        navigate('/onboarding');
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
